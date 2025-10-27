@@ -1,0 +1,7 @@
+1)Network flow analysis
+2)mapping vulnabilities to outdated firmware service of router
+3)Trying default passwords 
+4)Finding unusaual port configurations SNMP,SNMPv3,backdoors
+5)
+
+{policy files}

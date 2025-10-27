@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - OS Agent Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.google.com/recaptcha/api.js?render=6LdB6N8rAAAAAINwngPFu19YkKkOxreZl09lPxT7"></script>
+  
+  <style>
+    /* Hides the default reCAPTCHA badge; policy requires you mention Google's role. */
+    .grecaptcha-badge { 
+      visibility: hidden; 
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex justify-center items-center min-h-screen p-4">
+
+  <!-- The login form is now the main content -->
+  <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm">
+    <h3 class="text-2xl font-bold text-center mb-2 text-gray-800">Login</h3>
+    <p class="text-center text-gray-500 mb-6">Welcome back to the dashboard.</p>
+    
+    <!-- Error message display, now handled by the template engine -->
+    {% if error %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
+      <strong class="font-bold">Error:</strong>
+      <span class="block sm:inline">{{ error }}</span>
+    </div>
+    {% endif %}
+    
+    <!-- The login form now submits directly to the backend -->
+    <form id="login-form" method="POST" action="/login">
+      <div class="mb-4">
+        <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Username</label>
+        <input type="text" id="username" name="username" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+      </div>
+      <div class="mb-6">
+        <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+        <input type="password" id="password" name="password" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+      </div>
+
+      <button id="submit-button" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-all duration-300">
+        Login
+      </button>
+
+      <div class="text-center text-xs text-gray-500 mt-4">
+        This site is protected by reCAPTCHA and the Google
+        <a href="https://policies.google.com/privacy" target="_blank" class="text-blue-500 hover:underline">Privacy Policy</a> and
+        <a href="https://policies.google.com/terms" target="_blank" class="text-blue-500 hover:underline">Terms of Service</a> apply.
+      </div>
+      <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+    </form>
+  </div>
+
+<script>
+  // Add an event listener to the login form to handle reCAPTCHA
+  document.getElementById('login-form').addEventListener('submit', function(event) {
+    event.preventDefault(); // Prevent the form from submitting immediately
+    
+    const submitButton = document.getElementById('submit-button');
+    submitButton.disabled = true;
+    submitButton.innerText = 'Verifying...';
+
+    // Execute the reCAPTCHA check
+    grecaptcha.ready(function() {
+      grecaptcha.execute('6LdB6N8rAAAAAINwngPFu19YkKkOxreZl09lPxT7', {action: 'login'}).then(function(token) {
+        // Add the token to the hidden input field
+        document.getElementById('g-recaptcha-response').value = token;
+        
+        // Now, submit the form to your backend
+        document.getElementById('login-form').submit();
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

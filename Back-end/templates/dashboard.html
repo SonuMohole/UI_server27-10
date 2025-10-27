@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QS Agent Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .os-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      background: #fff;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .os-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    }
+
+    .os-card img {
+      width: 70px;
+      height: auto;
+      margin-bottom: 15px;
+    }
+
+    .os-card h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .os-card p {
+      font-size: 0.95rem;
+      color: #666;
+      margin-bottom: 15px;
+    }
+
+    .os-card button {
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .steps-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 25px;
+      margin-top: 40px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    code {
+      background-color: #f1f1f1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container py-5">
+
+  <!-- Header -->
+  <div class="text-center mb-5">
+    <h1 class="fw-bold">QS Agent Dashboard</h1>
+    <p class="text-muted">Download your OS-specific agent to begin monitoring</p>
+    <a href="{{ request.url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
+  </div>
+
+  <!-- OS Cards -->
+  <div class="row">
+    <div class="col-md-4">
+      <div class="os-card">
+        <img src="{{ request.url_for('static', path='icons/windows.png') }}" alt="Windows Logo">
+        <h3>Windows</h3>
+        <p>Download the Windows Agent</p>
+        <button onclick="getLink('windows')" class="btn btn-primary">Download</button>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="os-card">
+        <img src="{{ request.url_for('static', path='icons/linux.png') }}" alt="Linux Logo">
+        <h3>Ubuntu</h3>
+        <p>Download the Ubuntu Agent</p>
+        <button onclick="getLink('ubuntu')" class="btn btn-success">Download</button>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="os-card">
+        <img src="{{ request.url_for('static', path='icons/mac.png') }}" alt="Mac Logo">
+        <h3>Mac</h3>
+        <p>Download the Mac Agent</p>
+        <button onclick="getLink('mac')" class="btn btn-dark">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps-card">
+    <h4 class="mb-4">Steps to Get Started</h4>
+    <ol>
+      <li>Download the agent for your OS from above.</li>
+      <li>For Ubuntu, after downloading, run these commands:
+        <pre><code>chmod +x ubuntu_agent
+./ubuntu_agent</code></pre>
+      </li>
+    </ol>
+  </div>
+</div>
+
+<script>
+async function getLink(osName) {
+  try {
+    const endpoint = `/get_link/${encodeURIComponent(osName)}`;
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      let text = await response.text();
+      try {
+        const j = JSON.parse(text);
+        throw new Error(j.detail || j.message || response.statusText);
+      } catch (e) {
+        throw new Error(text || response.statusText);
+      }
+    }
+
+    const data = await response.json();
+    if (!data.url) throw new Error("Download URL missing from server response");
+
+    window.location.href = data.url;
+  } catch (err) {
+    alert("Could not fetch agent download link:\n" + (err.message || err));
+    console.error("getLink error:", err);
+  }
+}
+
+
+</script>
+
+</body>
+</html>
