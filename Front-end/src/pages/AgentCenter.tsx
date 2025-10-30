@@ -15,7 +15,8 @@ const API_BASE_URL = "http://localhost:8000";
 const initialOsCards = [
   {
     name: "Windows",
-    icon: "🪟",
+    // icon: "🪟",
+    icon: "/images/windows.png",
     api_name: "windows",
     version: "v2.4.1",
     file: "QS-Setup.exe",
@@ -24,7 +25,7 @@ const initialOsCards = [
   },
   {
     name: "Linux",
-    icon: "🐧",
+    icon: "/images/linux.png",
     api_name: "ubuntu",
     version: "v2.4.1",
     file: "qs-agent_1.0.0_all.deb",
@@ -33,7 +34,7 @@ const initialOsCards = [
   },
   {
     name: "macOS",
-    icon: "🍎",
+    icon: "/images/mac.png",
     api_name: "mac",
     version: "v2.4.1",
     file: "mac_agent",
@@ -210,7 +211,12 @@ export default function AgentCenter() {
             {osCards.map((os) => (
               <Card key={os.name} className="glass-card p-6 hover:glow-primary transition-all duration-300">
                 <div className="text-center space-y-4">
-                  <div className="text-6xl mb-2">{os.icon}</div>
+                  {/* --- REPLACE IT WITH THIS --- */}
+                  <img 
+                  src={os.icon} 
+                  alt={os.name} 
+                  className="w-20 h-20 mx-auto mb-4" // Adjust w-20 and h-20 to get the size you like
+                  />
                   <h3 className="text-xl font-bold">{os.name}</h3>
                   <div className="space-y-1 text-sm text-muted-foreground">
                     <p>

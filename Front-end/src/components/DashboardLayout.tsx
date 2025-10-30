@@ -1,24 +1,21 @@
-import { useState } from "react";
-import { Outlet, useLocation, Link } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Download,
-  ShieldAlert,
-  Newspaper,
-  FileText,
-  CreditCard,
-  Menu,
-  X,
-  Bot,
-  Settings,
-  Database, // 👈 Added this icon for Assets
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Bot,
+  Database,
+  Download,
+  FileText,
+  LayoutDashboard,
+  Menu,
+  Newspaper,
+  Settings,
+  ShieldAlert,
+  X
+} from "lucide-react";
+import { useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: LayoutDashboard, label: "Dashboard2", path: "/Dashboard2" },
-  { icon: LayoutDashboard, label: "Dashboard3", path: "/Dashboard3" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "Dashboard3" },
   { icon: Database, label: "Assets", path: "/assets" }, // 👈 Added Assets page here
   { icon: ShieldAlert, label: "Vulnerabilities", path: "/vulnerabilities" },
   { icon: Download, label: "Agent Center", path: "/agent-center" },
@@ -26,7 +23,6 @@ const navItems = [
   { icon: Newspaper, label: "News & Recommendations", path: "/threat-news" },
   { icon: FileText, label: "Reports", path: "/reports" },
   { icon: Bot, label: "AI Assistant", path: "/ai-assistant" },
-  { icon: CreditCard, label: "Subscription", path: "/subscription" },
   { icon: Settings, label: "Account & Settings", path: "/account-settings" },
 ];
 

@@ -6,20 +6,20 @@ import os
 import secrets
 import subprocess
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import psycopg2
 import requests
-from fastapi import (Depends, FastAPI, Form, HTTPException,  # Added Query
-                     Query, Request, Response, status)
-# =This is the required import for CORS
+# 🚀 FIX: Corrected the multi-line import syntax
+from fastapi import Query  # Added Query
+from fastapi import (Depends, FastAPI, Form, HTTPException, Request, Response,
+                     status)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                RedirectResponse)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-# Removed jose (JWT) imports as they are no longer needed
 from psycopg2.extras import Json, RealDictCursor
 from pydantic import BaseModel, Field
 
@@ -125,8 +125,9 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:5173",  # Add your React app's URL
+        "http://localhost:3000",  # This is your React app
+        "http://localhost:8080",  # Old port, good to keep
+        "http://localhost:5173",  # Another common React port
     ],
     allow_credentials=True, 
     allow_methods=["*"],
@@ -226,7 +227,7 @@ def upsert_asset_record(flat: dict, reporter_ip: Optional[str] = None, conn=Depe
 async def home(request: Request):
     # This route now redirects to your React App.
     # Change this URL if your React app runs on a different port.
-    return RedirectResponse(url="http://localhost:5173")
+    return RedirectResponse(url="http://localhost:3000") # 🚀 Pointed to your React port
 
 
 # --- Removed /login and /logout routes ---
@@ -348,7 +349,7 @@ async def dashboard(
     cur.execute(
         """
         SELECT hostname, username, os, os_version, cpu, memory_gb, disk_gb,
-               uptime_seconds, ip_addresses, collected_at
+                uptime_seconds, ip_addresses, collected_at
         FROM assets ORDER BY hostname ASC LIMIT %s OFFSET %s;
         """,
         (limit, offset)
@@ -366,6 +367,10 @@ async def dashboard(
         }
     )
 
+# 🚀 =============================================================================
+# 🚀 MODIFIED API ENDPOINT
+# 🚀 This now JOINS assets and agents to send the "risk" data your frontend needs.
+# 🚀 =============================================================================
 @app.get("/api/assets", response_class=JSONResponse)
 def get_assets_data(
     # user: Optional[dict] = Depends(get_current_user), # Removed Auth
@@ -375,14 +380,34 @@ def get_assets_data(
 ):
     offset = (page - 1) * limit
     cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # First, get the total count of assets
     cur.execute("SELECT COUNT(*) AS total FROM assets;")
     total_records = cur.fetchone()['total']
     total_pages = math.ceil(total_records / limit) if total_records > 0 else 1
+    
+    # 🚀 MODIFIED QUERY:
+    # This query joins the assets table with the latest priority from the agents table.
+    # COALESCE is used to set a default 'risk' if no agent record is found.
     cur.execute(
         """
-        SELECT hostname, username, os, os_version, cpu, memory_gb, disk_gb,
-               uptime_seconds, ip_addresses, collected_at
-        FROM assets ORDER BY hostname ASC LIMIT %s OFFSET %s;
+        SELECT 
+            ast.hostname, ast.username, ast.os, ast.os_version, ast.cpu, 
+            ast.memory_gb, ast.disk_gb, ast.uptime_seconds, ast.ip_addresses, 
+            ast.collected_at,
+            COALESCE(latest_agent.priority, 'Medium') AS risk 
+        FROM 
+            assets ast
+        LEFT JOIN (
+            -- Subquery to get only the latest priority for each hostname
+            SELECT DISTINCT ON (hostname) 
+                   hostname, priority
+            FROM agents
+            ORDER BY hostname, last_heartbeat DESC
+        ) AS latest_agent ON ast.hostname = latest_agent.hostname
+        ORDER BY 
+            ast.hostname ASC 
+        LIMIT %s OFFSET %s;
         """,
         (limit, offset)
     )
@@ -394,6 +419,9 @@ def get_assets_data(
         "current_page": page,
         "total_pages": total_pages,
     }
+# 🚀 =============================================================================
+# 🚀 END OF MODIFIED ENDPOINT
+# 🚀 =============================================================================
 
 
 @app.get("/server_dashboard", response_class=HTMLResponse)
@@ -568,3 +596,4 @@ def nmap_scan(request: Request, subnet: str = Form("192.168.1.0/24"), conn=Depen
     assets = cur.fetchall()
     cur.close()
     return templates.TemplateResponse("dashboard.html", {"request": request, "assets": assets, "scan_result": result, "user": None}) # Set user to None
+

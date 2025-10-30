@@ -1,70 +1,101 @@
-import { useState, useMemo } from "react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Edit3,
-  Server,
-  Cpu,
-  AppWindow,
-  Layers,
+  HardDrive,
+  Loader2,
   RefreshCcw,
+  Users
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+// -----------------------------
+// 🔹 Configuration
+// -----------------------------
+const API_BASE_URL = "http://localhost:8000";
+const ASSET_API_ENDPOINT = `${API_BASE_URL}/api/assets`;
 
 // -----------------------------
 // 🔹 Interfaces
 // -----------------------------
 interface Asset {
-  name: string;
-  type: string;
-  ip: string;
-  risk: "High" | "Medium" | "Low";
-  issues: number;
-  lastSeen: string;
-  status: string;
-}
-
-interface CategoryCardProps {
-  title: string;
-  count: number;
-  gradient: string;
-  icon: JSX.Element;
-  onClick?: () => void;
+  hostname: string;
+  username: string;
+  os: string;
+  os_version: string;
+  cpu: string;
+  memory_gb: number;
+  disk_gb: number;
+  ip_addresses: string;
+  collected_at: string;
 }
 
 // -----------------------------
-// 🔹 Reusable Category Card
+// 🔹 Tabs Component
 // -----------------------------
-const CategoryCard = ({ title, count, gradient, icon, onClick }: CategoryCardProps) => (
-  <Card
-    onClick={onClick}
-    className={`p-5 border-l-4 ${gradient} bg-gradient-to-br rounded-xl shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-300`}
-  >
-    <div className="flex justify-between items-center">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {icon}
+const Tabs = ({
+  activeTab,
+  setActiveTab,
+}: {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}) => {
+  const tabs = [
+    
+    { id: "inventory", name: "Asset Inventory", icon: <HardDrive className="w-4 h-4" /> },
+    { id: "useclient", name: "Priority", icon: <Users className="w-4 h-4" /> }, // ✅ New tab
+  ];
+
+  return (
+    <div className="flex gap-3 border-b pb-3">
+      {tabs.map((tab) => (
+        <Button
+          key={tab.id}
+          variant={activeTab === tab.id ? "default" : "outline"}
+          className="flex items-center gap-2 text-sm"
+          onClick={() => setActiveTab(tab.id)}
+        >
+          {tab.icon}
+          {tab.name}
+        </Button>
+      ))}
     </div>
-    <p className="text-3xl font-bold mt-2">{count}</p>
-    <p className="text-sm text-muted-foreground">View {title.toLowerCase()}</p>
-  </Card>
-);
+  );
+};
 
 // -----------------------------
-// 🔹 Reusable Table Component
+// 🔹 Asset Table Component
 // -----------------------------
-const AssetTable = ({ assets, onEdit }: { assets: Asset[]; onEdit: (asset: Asset) => void }) => (
+const AssetTable = ({
+  assets,
+  isLoading,
+  onEdit,
+}: {
+  assets: Asset[];
+  isLoading: boolean;
+  onEdit: (asset: Asset) => void;
+}) => (
   <div className="overflow-x-auto mt-8 border rounded-xl shadow bg-white/80 backdrop-blur-sm">
     <table className="min-w-full text-sm">
       <thead className="bg-gray-100/80 border-b">
         <tr>
           {[
             "Asset Name",
-            "Type",
-            "IP / Hostname",
-            "Risk Level",
-            "Issues",
+            "OS",
+            "IP Address",
+            "CPU",
+            "RAM / Disk",
             "Last Seen",
-            "Status",
+            "User",
             "Actions",
           ].map((header) => (
             <th
@@ -77,281 +108,359 @@ const AssetTable = ({ assets, onEdit }: { assets: Asset[]; onEdit: (asset: Asset
         </tr>
       </thead>
       <tbody>
-        {assets.map((asset, idx) => (
-          <tr
-            key={idx}
-            className="hover:bg-gray-50 transition-all border-b last:border-none"
-          >
-            <td className="px-4 py-2 font-medium text-foreground">
-              <div className="flex items-center gap-2">
-                {asset.status === "Active" && (
+        {isLoading ? (
+          <tr>
+            <td colSpan={8}>
+              <div className="flex justify-center items-center gap-2 py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="text-muted-foreground">Loading assets...</span>
+              </div>
+            </td>
+          </tr>
+        ) : assets.length === 0 ? (
+          <tr>
+            <td colSpan={8}>
+              <div className="text-center text-muted-foreground py-10">
+                No assets found. (Ensure backend has data.)
+              </div>
+            </td>
+          </tr>
+        ) : (
+          assets.map((asset, idx) => (
+            <tr
+              key={idx}
+              className="hover:bg-gray-50 transition-all border-b last:border-none"
+            >
+              <td className="px-4 py-2 font-medium text-foreground">
+                <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
-                )}
-                {asset.name}
-              </div>
-            </td>
-            <td className="px-4 py-2">{asset.type}</td>
-            <td className="px-4 py-2">{asset.ip}</td>
-            <td className="px-4 py-2">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  asset.risk === "High"
-                    ? "bg-red-100 text-red-700"
-                    : asset.risk === "Medium"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {asset.risk}
-              </span>
-            </td>
-            <td className="px-4 py-2">{asset.issues}</td>
-            <td className="px-4 py-2 text-muted-foreground">{asset.lastSeen}</td>
-            <td className="px-4 py-2">
-              <Badge
-                className={`text-xs ${
-                  asset.status === "At Risk"
-                    ? "bg-red-100 text-red-700"
-                    : asset.status === "Idle"
-                    ? "bg-gray-100 text-gray-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {asset.status}
-              </Badge>
-            </td>
-            <td className="px-4 py-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onEdit(asset)}
-                className="flex items-center gap-1 text-xs"
-              >
-                <Edit3 className="w-4 h-4 text-gray-700" />
-                Edit
-              </Button>
-            </td>
-          </tr>
-        ))}
+                  {asset.hostname}
+                </div>
+              </td>
+              <td className="px-4 py-2">{asset.os}</td>
+              <td className="px-4 py-2">{asset.ip_addresses}</td>
+              <td className="px-4 py-2 truncate max-w-[150px]">{asset.cpu}</td>
+              <td className="px-4 py-2">
+                {asset.memory_gb} GB / {asset.disk_gb} GB
+              </td>
+              <td className="px-4 py-2 text-muted-foreground">
+                {new Date(asset.collected_at).toLocaleString()}
+              </td>
+              <td className="px-4 py-2">
+                <Badge className="text-xs bg-blue-100 text-blue-700">
+                  {asset.username}
+                </Badge>
+              </td>
+              <td className="px-4 py-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(asset)}
+                  className="flex items-center gap-1 text-xs"
+                >
+                  <Edit3 className="w-4 h-4 text-gray-700" />
+                  Edit
+                </Button>
+              </td>
+            </tr>
+          ))
+        )}
       </tbody>
     </table>
-
-    {assets.length === 0 && (
-      <div className="text-center text-muted-foreground py-10">
-        No assets match your current filters.
-      </div>
-    )}
   </div>
 );
 
 // -----------------------------
 // 🔹 Main Component
 // -----------------------------
-export default function AssetsPage() {
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [riskFilter, setRiskFilter] = useState("All");
+export default function AgentCenterPage() {
+  const [activeTab, setActiveTab] = useState("inventory");
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
-  // Demo Asset Data (extended)
-  const assets: Asset[] = [
-    { name: "Server-01", type: "Server", ip: "10.0.0.24", risk: "High", issues: 8, lastSeen: "2 hrs ago", status: "Active" },
-    { name: "Server-02", type: "Server", ip: "10.0.0.35", risk: "Low", issues: 1, lastSeen: "3 hrs ago", status: "Active" },
-    { name: "Workstation-24", type: "Endpoint", ip: "10.0.2.11", risk: "Medium", issues: 3, lastSeen: "5 hrs ago", status: "At Risk" },
-    { name: "App-Backend", type: "Technology", ip: "172.16.5.22", risk: "High", issues: 6, lastSeen: "1 day ago", status: "Idle" },
-    { name: "Laptop-18", type: "Endpoint", ip: "10.0.3.45", risk: "Low", issues: 0, lastSeen: "12 hrs ago", status: "Active" },
-    { name: "API-Gateway", type: "Technology", ip: "192.168.1.10", risk: "Medium", issues: 2, lastSeen: "8 hrs ago", status: "Active" },
-    { name: "Finance-Server", type: "Server", ip: "10.10.0.5", risk: "High", issues: 5, lastSeen: "3 hrs ago", status: "At Risk" },
-    { name: "HR-Laptop", type: "Endpoint", ip: "10.0.5.33", risk: "Low", issues: 0, lastSeen: "6 hrs ago", status: "Active" },
-    { name: "Dev-Workstation", type: "Endpoint", ip: "10.0.2.77", risk: "Medium", issues: 4, lastSeen: "1 hr ago", status: "Active" },
-    { name: "Data-Processor", type: "Technology", ip: "172.16.3.19", risk: "High", issues: 7, lastSeen: "4 hrs ago", status: "Idle" },
-    { name: "QA-Server", type: "Server", ip: "10.1.0.9", risk: "Medium", issues: 2, lastSeen: "30 mins ago", status: "Active" },
-    { name: "Proxy-Node", type: "Technology", ip: "172.16.7.88", risk: "Low", issues: 0, lastSeen: "10 hrs ago", status: "Active" },
-  ];
+  const handleEdit = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setIsModalOpen(true);
+  };
 
-  // Filter logic
-  const filteredAssets = useMemo(() => {
-    return assets.filter((asset) => {
-      const matchesSearch =
-        asset.name.toLowerCase().includes(search.toLowerCase()) ||
-        asset.ip.toLowerCase().includes(search.toLowerCase());
-      const matchesType = typeFilter === "All" || asset.type === typeFilter;
-      const matchesRisk = riskFilter === "All" || asset.risk === riskFilter;
-      return matchesSearch && matchesType && matchesRisk;
-    });
-  }, [search, typeFilter, riskFilter]);
+  // ✅ Fetch assets
+  const fetchAssets = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(ASSET_API_ENDPOINT);
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      const data = await response.json();
+      setAssets(Array.isArray(data) ? data : data.assets || []);
+    } catch (error) {
+      console.error("Failed to fetch assets:", error);
+      toast.error("Failed to fetch assets.", {
+        description: "Please check the API connection and try again.",
+      });
+      setAssets([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Edit Handler
-  const handleEdit = (asset: Asset) => alert(`Edit record: ${asset.name}`);
+  useEffect(() => {
+    fetchAssets();
+  }, []);
 
-  // Summary Categories (Total + Individual)
-  const categories = [
-    {
-  name: "Total Assets",
-  count: assets.length,
-  gradient: "from-gray-800 to-gray-700 border-l-gray-800",
-  icon: <Layers className="w-5 h-5 text-gray-200" />,
-},
-
-    {
-      name: "Servers",
-      count: assets.filter((a) => a.type === "Server").length,
-      gradient: "from-indigo-500/10 to-indigo-500/5 border-l-indigo-500",
-      icon: <Server className="w-5 h-5 text-indigo-600" />,
-    },
-    {
-      name: "Endpoints",
-      count: assets.filter((a) => a.type === "Endpoint").length,
-      gradient: "from-emerald-500/10 to-emerald-500/5 border-l-emerald-500",
-      icon: <Cpu className="w-5 h-5 text-emerald-600" />,
-    },
-    {
-      name: "Technologies",
-      count: assets.filter((a) => a.type === "Technology").length,
-      gradient: "from-pink-500/10 to-pink-500/5 border-l-pink-500",
-      icon: <AppWindow className="w-5 h-5 text-pink-600" />,
-    },
-  ];
+  const filteredAssets = useMemo(() => assets, [assets]);
 
   return (
-    <div className="p-8 space-y-10 animate-fadeIn">
+    <div className="p-8 space-y-8 animate-fadeIn">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground">Asset Inventory</h1>
-          <p className="text-muted-foreground">
-            Comprehensive overview of all discovered assets across your organization.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <RefreshCcw className="h-4 w-4 animate-spin-slow" />
-          <span>Auto-refresh every 5 mins</span>
-        </div>
+      <div>
+        <h1 className="text-4xl font-bold text-foreground">Agent Center</h1>
+        <p className="text-muted-foreground">
+          Download, monitor, and manage security agents.
+        </p>
       </div>
 
-      {/* Category Summary Cards */}
- {/* 🔹 Improved Compact, Balanced Summary Cards */}
-{/* ⚡ Minimal & Sleek Summary Cards */}
-{/* ⚫⚪ Black & White with Color Glow on Hover */}
-<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
-  {categories.map((cat) => (
-    <Card
-      key={cat.name}
-      onClick={() =>
-        setTypeFilter(cat.name === "Total Assets" ? "All" : cat.name.slice(0, -1))
-      }
-      className={`
-        relative group overflow-hidden p-4 rounded-xl border border-gray-200/70
-        bg-gradient-to-br from-white via-gray-50 to-gray-100 
-        dark:from-[#0c0c0c] dark:via-[#111111] dark:to-[#1a1a1a]
-        hover:shadow-xl transition-all duration-500 cursor-pointer
-        flex flex-col justify-between
-      `}
-    >
-      {/* ✨ Color Glow Background (Appears on Hover) */}
-      <div
-        className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl rounded-xl`}
-        style={{
-          background:
-            cat.name === "Servers"
-              ? "radial-gradient(circle at center, rgba(99,102,241,0.25), transparent 70%)"
-              : cat.name === "Endpoints"
-              ? "radial-gradient(circle at center, rgba(16,185,129,0.25), transparent 70%)"
-              : cat.name === "Technologies"
-              ? "radial-gradient(circle at center, rgba(236,72,153,0.25), transparent 70%)"
-              : "radial-gradient(circle at center, rgba(31,41,55,0.3), transparent 70%)",
-        }}
-      ></div>
+      {/* Tabs */}
+      <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Card Content */}
-      <div className="relative z-10 flex justify-between items-center">
-        <h2 className="text-sm font-medium text-gray-800 dark:text-gray-200 tracking-wide">
-          {cat.name}
-        </h2>
-        <div
-          className={`text-gray-400 transition-all duration-500 transform group-hover:scale-110 group-hover:text-black dark:group-hover:text-white`}
-        >
-          {cat.icon}
-        </div>
-      </div>
+      {/* Tab Content */}
+      <div className="mt-8">
+        {activeTab === "download" && (
+          <div>
+            <h2 className="text-xl font-semibold">Download Center</h2>
+            <p className="text-muted-foreground mt-2">
+              Download the latest security agents for your OS.
+            </p>
+            <Button className="mt-4">Download Agent</Button>
+          </div>
+        )}
 
-      <p className="relative z-10 text-2xl font-semibold mt-2 text-gray-900 dark:text-gray-100 tracking-tight">
-        {cat.count}
+        {activeTab === "monitoring" && (
+          <div>
+            <h2 className="text-xl font-semibold">Monitoring</h2>
+            <p className="text-muted-foreground mt-2">
+              Real-time agent status and heartbeat tracking will appear here.
+            </p>
+          </div>
+        )}
+
+        {activeTab === "inventory" && (
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Asset Inventory</h2>
+                <p className="text-muted-foreground">
+                  Comprehensive overview of all discovered assets.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={fetchAssets} disabled={isLoading}>
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                {isLoading ? "Refreshing..." : "Refresh"}
+              </Button>
+            </div>
+            <AssetTable assets={filteredAssets} isLoading={isLoading} onEdit={handleEdit} />
+          </div>
+        )}
+
+      {activeTab === "useclient" && (
+  <div className="p-8 space-y-8 animate-fadeIn">
+    {/* Header */}
+    <div>
+      <h2 className="text-2xl font-semibold text-gray-900">Asset Priority Classification</h2>
+      <p className="text-muted-foreground mt-2">
+        Review and prioritize assets based on CIA (Confidentiality, Integrity, Availability) impact levels.
       </p>
+    </div>
 
-      {/* Underline Accent on Hover */}
-      <div
-        className={`absolute bottom-0 left-0 h-[2px] w-0 group-hover:w-full transition-all duration-700 rounded-full`}
-        style={{
-          background:
-            cat.name === "Servers"
-              ? "#6366f1"
-              : cat.name === "Endpoints"
-              ? "#10b981"
-              : cat.name === "Technologies"
-              ? "#ec4899"
-              : "#111827",
-        }}
-      ></div>
-    </Card>
-  ))}
-</div>
+    {/* Dummy Data */}
+    {(() => {
+      const dummyAssets = [
+        {
+          id: 1,
+          hostname: "db-prod-01.finance.core",
+          ip: "10.1.1.5",
+          type: "Server",
+          confidentiality: "High",
+          integrity: "High",
+          availability: "High",
+          process: "Payment Processing",
+          compliance: "PCI-DSS",
+          internetFacing: "No",
+        },
+        {
+          id: 2,
+          hostname: "web-portal-01.ecom.public",
+          ip: "172.217.14.228",
+          type: "Cloud",
+          confidentiality: "Medium",
+          integrity: "Medium",
+          availability: "High",
+          process: "Customer Portal",
+          compliance: "GDPR",
+          internetFacing: "Yes",
+        },
+        {
+          id: 3,
+          hostname: "dev-laptop-jdoe",
+          ip: "192.168.1.102",
+          type: "Endpoint",
+          confidentiality: "Medium",
+          integrity: "Low",
+          availability: "Low",
+          process: "Software Development",
+          compliance: "None",
+          internetFacing: "No",
+        },
+        {
+          id: 4,
+          hostname: "core-router-01.datacenter",
+          ip: "10.0.0.1",
+          type: "Network Device",
+          confidentiality: "Low",
+          integrity: "High",
+          availability: "High",
+          process: "Network Routing",
+          compliance: "None",
+          internetFacing: "No",
+        },
+        {
+          id: 5,
+          hostname: "hr-fileshare-01",
+          ip: "10.1.10.50",
+          type: "Server",
+          confidentiality: "High",
+          integrity: "Medium",
+          availability: "Medium",
+          process: "HR Files",
+          compliance: "HIPAA, GDPR",
+          internetFacing: "No",
+        },
+      ];
 
+      const ImpactBadge = ({ level }: { level: string }) => {
+        const colorMap: Record<string, string> = {
+          High: "bg-red-100 text-red-700",
+          Medium: "bg-yellow-100 text-yellow-700",
+          Low: "bg-green-100 text-green-700",
+        };
+        return (
+          <span
+            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+              colorMap[level] || "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {level}
+          </span>
+        );
+      };
 
+      return (
+        <div className="overflow-x-auto border rounded-xl shadow bg-white/90 backdrop-blur-sm">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-100/80 border-b">
+              <tr>
+                {[
+                  "Hostname",
+                  "IP Address",
+                  "Asset Type",
+                  "Business Process",
+                  "Confidentiality",
+                  "Integrity",
+                  "Availability",
+                  "Compliance",
+                  "Internet Facing",
+                  "Priority Level",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-3 text-left font-semibold text-gray-700 text-xs uppercase tracking-wide"
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {dummyAssets.map((asset) => {
+                // Calculate simple priority score
+                const scoreMap = { High: 3, Medium: 2, Low: 1 };
+                const score =
+                  scoreMap[asset.confidentiality] +
+                  scoreMap[asset.integrity] +
+                  scoreMap[asset.availability];
+                let priorityLabel = "Low";
+                let priorityColor = "bg-green-100 text-green-700";
+                if (score >= 8) {
+                  priorityLabel = "Critical";
+                  priorityColor = "bg-red-100 text-red-700";
+                } else if (score >= 6) {
+                  priorityLabel = "High";
+                  priorityColor = "bg-orange-100 text-orange-700";
+                } else if (score >= 4) {
+                  priorityLabel = "Medium";
+                  priorityColor = "bg-yellow-100 text-yellow-700";
+                }
 
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center justify-between mt-6">
-        <input
-          type="text"
-          placeholder="Search assets by name or IP..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full md:w-1/3 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-        />
-
-        {/* Type Filter */}
-        <div className="flex gap-2">
-          {["All", "Server", "Endpoint", "Technology"].map((type) => (
-            <Button
-              key={type}
-              variant={typeFilter === type ? "default" : "outline"}
-              onClick={() => setTypeFilter(type)}
-              className="text-sm"
-            >
-              {type}
-            </Button>
-          ))}
+                return (
+                  <tr key={asset.id} className="hover:bg-gray-50 transition-all">
+                    <td className="px-4 py-2 font-medium text-gray-900">{asset.hostname}</td>
+                    <td className="px-4 py-2">{asset.ip}</td>
+                    <td className="px-4 py-2">{asset.type}</td>
+                    <td className="px-4 py-2">{asset.process}</td>
+                    <td className="px-4 py-2"><ImpactBadge level={asset.confidentiality} /></td>
+                    <td className="px-4 py-2"><ImpactBadge level={asset.integrity} /></td>
+                    <td className="px-4 py-2"><ImpactBadge level={asset.availability} /></td>
+                    <td className="px-4 py-2 text-gray-700">{asset.compliance}</td>
+                    <td className="px-4 py-2 text-gray-700">{asset.internetFacing}</td>
+                    <td className="px-4 py-2">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${priorityColor}`}>
+                        {priorityLabel}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+      );
+    })()}
+  </div>
+)}
 
-        {/* Risk Filter */}
-        <div className="flex gap-2">
-          {["All", "High", "Medium", "Low"].map((risk) => (
-            <Badge
-              key={risk}
-              onClick={() => setRiskFilter(risk)}
-              className={`cursor-pointer px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                riskFilter === risk
-                  ? risk === "High"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : risk === "Medium"
-                    ? "bg-yellow-500 text-white shadow-sm"
-                    : risk === "Low"
-                    ? "bg-green-600 text-white shadow-sm"
-                    : "bg-primary text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {risk}
-            </Badge>
-          ))}
-        </div>
       </div>
 
-      {/* Asset Table */}
-      <AssetTable assets={filteredAssets} onEdit={handleEdit} />
+      {/* Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asset Details</DialogTitle>
+            <DialogDescription>Information for selected asset</DialogDescription>
+          </DialogHeader>
+
+          {selectedAsset && (
+            <div className="space-y-2 mt-2">
+              <p><strong>Hostname:</strong> {selectedAsset.hostname}</p>
+              <p><strong>OS:</strong> {selectedAsset.os}</p>
+              <p><strong>CPU:</strong> {selectedAsset.cpu}</p>
+              <p><strong>RAM / Disk:</strong> {selectedAsset.memory_gb}GB / {selectedAsset.disk_gb}GB</p>
+              <p><strong>IP:</strong> {selectedAsset.ip_addresses}</p>
+              <p><strong>User:</strong> {selectedAsset.username}</p>
+              <p><strong>Last Seen:</strong> {new Date(selectedAsset.collected_at).toLocaleString()}</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+    
   );
 }
